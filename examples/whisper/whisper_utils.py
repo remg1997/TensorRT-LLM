@@ -73,7 +73,12 @@ def load_audio_wav_format(wav_path):
     # make sure audio in .wav format
     assert wav_path.endswith(
         '.wav'), f"Only support .wav format, but got {wav_path}"
-    waveform, sample_rate = soundfile.read(wav_path)
+    ### Soundfile includes padding and type definition.
+    waveform, sample_rate = soundfile.read(wav_path, frames = 480000, fill_value=0, dtype='float32')
+    #### How to deal with multichannel audio
+    if len(waveform.shape) > 1:
+        waveform = waveform.mean(axis=-1)
+    print("Shape of waveform: {}".format(waveform.shape))
     assert sample_rate == 16000, f"Only support 16k sample rate, but got {sample_rate}"
     return waveform, sample_rate
 
@@ -167,14 +172,18 @@ def log_mel_spectrogram(
         assert isinstance(audio,
                           np.ndarray), f"Unsupported audio type: {type(audio)}"
         duration = audio.shape[-1] / SAMPLE_RATE
-        audio = pad_or_trim(audio, N_SAMPLES)
-        audio = audio.astype(np.float32)
+        print(f"audio duration: {duration:.2f} seconds")
+        #The next lines are unnecesary as Soundfile deals directly
+        # audio = pad_or_trim(audio, N_SAMPLES)
+        # audio = audio.astype(np.float32)
         audio = torch.from_numpy(audio)
+        print("converted to tensor")
 
     if device is not None:
         audio = audio.to(device)
-    if padding > 0:
-        audio = F.pad(audio, (0, padding))
+    # Not sure what this actually does?
+    # if padding > 0:
+    #     audio = F.pad(audio, (0, padding))
     window = torch.hann_window(N_FFT).to(audio.device)
     stft = torch.stft(audio,
                       N_FFT,
